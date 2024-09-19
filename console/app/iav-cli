@@ -1,0 +1,104 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+date_default_timezone_set("Europe/Moscow");
+
+const APP_DIR = __DIR__ . '/..';
+const COMMON_SRC_DIR = APP_DIR . '/../src';
+
+if (PHP_SAPI !== 'cli') {
+    exit;
+}
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use Console\Command\CheckTokensCommand;
+use Console\Command\ExampleCommand;
+use Console\Command\InvalidateSessionsCommand;
+use Console\Command\Push\PushQueueBySubscriptionsCommand;
+use Console\Command\Push\PushQueueByTokensCommand;
+use Console\Command\Push\PushQueueCommand;
+use Console\Command\Push\PushRebuildSubscriptionsCommand;
+use Console\Command\Push\PushSendCommand;
+use Console\Command\Push\PushSendByTokensCommand;
+use Console\Command\Push\PushSubscribeCommand;
+use Console\Command\Push\PushTestSendCommand;
+use Console\Command\ReshardUsersCommand;
+use Console\Command\TokensLegacyToNewCommand;
+use Console\Command\WriteDeliveryStatisticCommand;
+use Console\Command\WriteSiteStatisticCommand;
+use DI\ContainerBuilder;
+use OpenTelemetry\API\Trace\TracerInterface;
+use Psr\Log\LoggerInterface;
+use Src\Service\iAvProducerService;
+use Src\Settings\SettingsInterface;
+use Symfony\Component\Console\Application;
+use Symfony\Component\Dotenv\Dotenv;
+
+chdir(dirname(__DIR__));
+
+if (file_exists(APP_DIR . '/.env')) {
+    (new Dotenv())->overload(APP_DIR . '/.env');
+}
+//function errorHandlerForTelegram(int $errNo, string $errMsg, string $file, int $line)
+//{
+//    if (!$_ENV['TELEGRAM_CHAT_ID'] || !$_ENV['TELEGRAM_TOKEN']) {
+//        return;
+//    }
+//
+//    $telegramLogger = new TelegramLogger($_ENV['TELEGRAM_CHAT_ID'], $_ENV['TELEGRAM_TOKEN']);
+//    $message = "#dsplog #" . $_ENV['SERVER_NAME'] . "\n\n" .
+//        "Bidder iavcli error\n\n" .
+//        "error occurred in [" . $file . "] at line [" . $line . "]: [" . $errMsg . "]";
+//
+//    $telegramLogger->send($message);
+//}
+//
+//set_error_handler('errorHandlerForTelegram');
+
+$config = require __DIR__ . '/../config/settings.php';
+
+$container = (new ContainerBuilder())
+    ->addDefinitions(__DIR__ . '/../config/dependencies.php')
+    ->build();
+$app = $container->get(Application::class);
+$app->setCatchExceptions(true);
+
+$app->add(new CheckTokensCommand($container));
+$app->add(new TokensLegacyToNewCommand($container));
+$app->add(new PushSubscribeCommand($container));
+
+$app->add(new PushSendCommand($container));
+$app->add(new PushQueueCommand($container));
+
+$app->add(new PushQueueByTokensCommand($container));
+$app->add(new PushSendByTokensCommand($container));
+
+$app->add(new PushQueueBySubscriptionsCommand($container->get(iAvProducerService::class), $container));
+
+$app->add(new PushRebuildSubscriptionsCommand($container));
+$app->add(new ExampleCommand($container));
+$app->add(new InvalidateSessionsCommand($container->get(SettingsInterface::class), $container));
+$app->add(new ReshardUsersCommand($container->get(SettingsInterface::class), $container->get(Redis::class), $container->get(LoggerInterface::class), $container));
+$app->add(new WriteSiteStatisticCommand($container->get(\PDO::class), $container->get(Redis::class), $container->get(LoggerInterface::class), $container));
+$app->add(new WriteDeliveryStatisticCommand($container->get(\PDO::class), $container->get(Redis::class), $container->get(LoggerInterface::class), $container));
+
+$app->add(new PushTestSendCommand($container));
+
+try {
+    $app->run();
+} catch (Throwable $e) {
+    $message = "Error occurred in [" . $e->getFile() . "] at line [" . $e->getLine() . "]: [" . $e->getMessage() . "]\n\n" .
+        $e->getTraceAsString();
+    $span = $container->get(TracerInterface::class)
+        ->spanBuilder('Unhandled-error')
+        ->startSpan();
+    $span->addEvent('error', ['execution-error' => '#SRV-Push iav-cli exception\n\n' . $message]);
+
+    $logger = $container->get(\Psr\Log\LoggerInterface::class);
+    $logger->debug($message);
+} finally {
+    $span->addEvent('end-command ', ['result' => 'res']);
+    $span->end();
+}

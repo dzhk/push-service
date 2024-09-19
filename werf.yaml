@@ -1,0 +1,24 @@
+project: srv-push
+configVersion: 1
+deploy:
+  namespace: iav-srv
+
+---
+image: srv-push-public-api
+context: publicAPI
+dockerfile: Dockerfile
+
+---
+image: srv-push-private-api
+dockerfile: Dockerfile
+target: backend
+
+---
+image: srv-push-console
+dockerfile: Dockerfile
+target: cli
+
+---
+image: srv-push-nginx
+dockerfile: Dockerfile
+target: frontend

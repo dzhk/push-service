@@ -1,0 +1,348 @@
+openapi: 3.0.3
+info:
+    title: Сервис SRV-PUSH - PRIVATE API
+    description: |-
+        Описание приватного API пушей
+    contact:
+        email: contact@iav.coder
+    version: '0.1'
+servers:
+    -   url: http://push.my.local/
+        description: Development server (uses test data)
+tags:
+    -   name: PRIVATE API
+        description: Методы для работы с приватным API push-сервиса (PHP-проект)
+paths:
+    /push/notifications:
+        get:
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                pagination:
+                                    $ref: '#/components/schemas/PaginationRequest'
+            tags:
+                - PRIVATE API
+            summary: Запрос списка уведомлений, которые находятся в БД
+            description: Результаты с пагинацией по 100 элементов, отсортированые по уменьшению времени отправки
+            operationId: getNotifications
+            responses:
+                '200':
+                    description: Успешно обработано
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    pagination:
+                                        $ref: '#/components/schemas/PaginationResponse'
+                                    notifications:
+                                        $ref: '#/components/schemas/NotificationsGet'
+                '400':
+                    description: 'Ошибка выполнения'
+        post:
+            tags:
+                - PRIVATE API
+            summary: Добавление уведомлений в очередь
+            description: Под каждую локализацию своя очередь
+            operationId: addNotifications
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                notifications:
+                                    $ref: '#/components/schemas/NotificationsPost'
+            responses:
+                '200':
+                    description: Успешно обработано
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    notifications:
+                                        $ref: '#/components/schemas/NotificationsGet'
+                '400':
+                    description: Ошибка выполнения
+    /push/notifications/{notification_id}:
+        delete:
+            tags:
+                - PRIVATE API
+            summary: Удалить уведомление из очереди
+            description: Удаляется уведомление, все уведомление после него сдвигаются на один слот
+            operationId: delete
+            responses:
+                '200':
+                    description: Успешно обработано
+                '400':
+                    description: Ошибка выполнения
+
+    /push/statistic:
+        get:
+            tags:
+                - PRIVATE API
+            summary: Запрос статистики по пушам
+            description: Результаты с пагинацией по 100 элементов, отсортированы по уменьшению времени отправки
+            operationId: statistic
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                pagination:
+                                    $ref: '#/components/schemas/PaginationRequest'
+                                statistic_type:
+                                    $ref: '#/components/schemas/StatisticType'
+            responses:
+                '200':
+                    description: Успешно обработано
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    statistic:
+                                        $ref: '#/components/schemas/Statistic'
+                                    pagination:
+                                        $ref: '#/components/schemas/PaginationResponse'
+                                    statistic_type:
+                                        $ref: '#/components/schemas/StatisticType'
+
+                '400':
+                    description: Ошибка выполнения
+    /push/domains:
+        post:
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                domains:
+                                    $ref: '#/components/schemas/Domains'
+            tags:
+                - PRIVATE API
+            summary: Загрузка доступных доменов
+            description: Создаёт или обновляет запись о домене, можно отправлять все доступные домены одним запросом
+            operationId: domains
+            responses:
+                '200':
+                    description: Успешно обработано
+    /push/test/send:
+        post:
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                domains:
+                                    $ref: '#/components/schemas/TestSendToTokenRequest'
+            tags:
+                - FOR TESTING PURPOSE
+            description: Отправить уведомление по токенам
+            operationId: test
+
+            responses:
+                '200':
+                    description: Успешно обработано
+###############################################################################
+components:
+    schemas:
+        TestSendToTokenRequest:
+            type: object
+            properties:
+                registration_ids:
+                    type: array
+                    items:
+                        type: string
+                    example: [
+                        "cTADpG2kku5kA1kH6HdHWd:APA91bGQDQgpL0aDTgniu0r4Rfzn3Ys0bPIZst4L6JW8hKoF4aPFTvTJzA0PLLvCSBBFDBW9O3QQQ2F6tF_yKk2UpA4bZVehBbKMqCHxDdDM_zIRctLe5FxtVUbvjclEo9QsXhDIMujH"
+                    ]
+                notification:
+                    type: object
+                    properties:
+                        title:
+                            type: string
+                            example: «Юнона» передала на Землю снимки Ио, спутника Юпитера
+                        body:
+                            type: string
+                            example: Научно-популярное, Астрономия
+                data:
+                    type: object
+                    properties:
+                        url:
+                            type: string
+                            example: https://news-press24.com/pclick.php?id=17766
+                        img:
+                            type: string
+                            example: https://news-press24.com/images/market/9/17766.3056.300.300.1473549145.jpg
+                        icon:
+                            type: string
+                            example: https://news-press24.com/images/market/9/17766.3056.300.300.1473549145.jpg
+                        badge:
+                            type: string
+                            example: /templates/zen/img/badge.png
+                        id:
+                            type: integer
+                            format: int32
+                            example: 17766
+                        stat:
+                            type: string
+                            example: http://localhost:5011
+                        surl:
+                            type: string
+                            example: http://localhost:8077/s/p?wid=01h8y2j85daapush&r=
+                time_to_live:
+                    type: integer
+                    format: int32
+                    example: 20
+
+        PaginationRequest:
+            type: object
+            properties:
+                current_page:
+                    type: integer
+                    example: 2
+                    required: false
+                    default: 1
+                    description: Текущая страница
+                items_per_page:
+                    type: integer
+                    example: 11
+                    required: false
+                    default: 10
+                    description: Количество элементов на странице
+        PaginationResponse:
+            type: object
+            properties:
+                current_page:
+                    type: integer
+                    example: 2
+                    required: true
+                    description: Текущая страница
+                items_per_page:
+                    type: integer
+                    example: 11
+                    required: false
+                    default: 10
+                    description: Количество элементов на странице
+                total:
+                    type: integer
+                    example: 32
+                    required: true
+                    description: Всего оповещений
+
+        Localization:
+            type: string
+            required: true
+            example: 'ru'
+            minLength: 2
+            maxLength: 2
+            description: Локаль не каноническая 2 символа
+
+        NotificationStatus:
+            type: string
+            example: 'active'
+            enum: [ 'active', 'sent' ] #, 'deleted' - эти в выборку не попадают
+            description: Тип события
+
+        NotificationGet:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    example: 8230
+                    required: true
+                img:
+                    type: string
+                    example: 'https://static.local/images/external/12/89738.300032.500x300.1473549145.jpg'
+                title:
+                    type: string
+                    example: 'Kamu akan terkejut! 2 fakta menarik tentang Gisella'
+                    required: true
+                description:
+                    type: string
+                    example: 'Sungguh menakjubkan!'
+                    required: true
+                localization:
+                    $ref: '#/components/schemas/Localization'
+                status:
+                    items:
+                        $ref: '#/components/schemas/NotificationStatus'
+                scheduled_at:
+                    type: string
+                    example: '2023-11-23 00:45:00'
+                    required: true
+        NotificationsGet:
+            type: array
+            items:
+                oneOf:
+                    -   $ref: '#/components/schemas/NotificationGet'
+        NotificationsPost:
+            type: array
+            items:
+                oneOf:
+                    -   $ref: '#/components/schemas/NotificationPost'
+        NotificationPost:
+            type: object
+            properties:
+                content_id:
+                    type: integer
+                    example: 8230
+                    required: true
+                img:
+                    type: string
+                    example: 'https://static.local/images/external/12/89738.300032.500x300.1473549145.jpg'
+                link:
+                    type: string
+                    example: 'https://static.local/somelink.html'
+                title:
+                    type: string
+                    example: 'Kamu akan terkejut! 2 fakta menarik tentang Gisella'
+                    required: true
+                description:
+                    type: string
+                    example: 'Sungguh menakjubkan!'
+                    required: true
+                localization:
+                    $ref: '#/components/schemas/Localization'
+                scheduled_at:
+                    type: string
+                    example: '2023-11-23 00:45:00'
+                    required: true
+
+        Domain:
+            type: object
+            properties:
+                domain:
+                    type: string
+                    example: "news-press24.com"
+                    description: Доменное имя
+                widget_id:
+                    type: string
+                    example: "01gjq843yyaapush"
+                    description: id виджета в RTB
+                partner_id:
+                    type: integer
+                    example: 12
+                    description: id партнера
+                localization:
+                    $ref: '#/components/schemas/Localization'
+        Domains:
+            type: array
+            items:
+                oneOf:
+                    - $ref: '#/components/schemas/Domain'
+
+        StatisticType:
+            type: string
+            default: 'daily'
+            enum:
+                - '10min'
+                - 'daily'
+
+        StatisticItem:
+            type: object
+        Statistic:
+            type: array
+            items:
+                oneOf:
+                    -   $ref: '#/components/schemas/StatisticItem'

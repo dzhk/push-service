@@ -1,0 +1,35 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+date_default_timezone_set("Europe/Moscow");
+
+const APP_DIR = __DIR__ . '/..';
+const COMMON_SRC_DIR = APP_DIR . '/../src';
+
+require __DIR__ . '/../vendor/autoload.php';
+
+if (PHP_SAPI !== 'cli') {
+    exit;
+}
+
+use DI\ContainerBuilder;
+use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\Tools\Console\ConsoleRunner;
+use Doctrine\ORM\Tools\Console\EntityManagerProvider\SingleManagerProvider;
+
+$config = require __DIR__ . '/../config/settings.php';
+$allDefinitions = require __DIR__ . '/../config/dependencies.php';
+$container = (new ContainerBuilder())
+    ->addDefinitions([
+        \Src\Settings\SettingsInterface::class => $allDefinitions[\Src\Settings\SettingsInterface::class],
+        EntityManager::class => $allDefinitions[EntityManager::class]
+    ])
+    ->build();
+$commands = [];
+
+$entityManager = $container->get(EntityManager::class);
+ConsoleRunner::run(
+    new SingleManagerProvider($entityManager),
+    $commands
+);
